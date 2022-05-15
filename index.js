@@ -30,13 +30,12 @@ try{
      });
 // this is not the proper way to query 
    app.get('/available',async(req,res)=>{
-     const date= req.query.date;
+     const date= req.query.date ;
  
      // step1: get aall services
      const services = await serviceCollection.find().toArray( )
       // step 2: get the booking of that day out[{},{},{} {} {}]
       const query ={date: date};
-      console.log(query)
      const bookings = await bookingCollection.find(query).toArray()
       // step3 : for each service find bookings for that service.
       // services.forEach(service =>{
@@ -67,6 +66,16 @@ try{
   * app.patch(/booking/:id)//
   * app.delete('booking/:id)
   */
+  app.get('/booking', async(req, res) =>{
+    const patient = req.query.patient;
+    const query = {patient: patient};
+    console.log(query)
+    const bookings = await bookingCollection.find(query).toArray();
+    res.send(bookings);
+  })
+
+
+
       app.post('/booking' ,async(req,res)=>{
         const booking=req.body;
        const query ={treatment:booking.treatment,date:booking.date, patient:booking.patient}
@@ -77,7 +86,7 @@ try{
        const result =await bookingCollection.insertOne(booking)
      return   res.send({success:true, result})
 
-      })
+      });
 
 
 } 
