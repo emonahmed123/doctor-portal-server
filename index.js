@@ -4,7 +4,7 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const app =express();
-const port =process.env.PROT || 5000
+const port =process.env.PORT ||5000
 
 
   app.use(cors());
@@ -25,7 +25,7 @@ function verifyJWT(req, res, next) {
   // console.log(authHeader)
   const token = authHeader.split(' ')[1];
   
-  jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+  jwt.verify(token,process.env.ACCESS_TOKEN, function (err, decoded) {
   //  console.log(decoded)
    
    if (err) {
