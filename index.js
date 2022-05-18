@@ -15,7 +15,7 @@ const port =process.env.PROT || 5000
 
 const uri =`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.6lyyw.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
-
+console.log(uri);
 
 function verifyJWT(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -46,7 +46,7 @@ try{
   const userCollection =client.db('doctor_portal').collection('users')
 
 
-     app.get('/service', async(req , res)=>{
+     app.get('/service',async(req , res)=>{
          const query ={}
          const cursor =serviceCollection.find(query)
         const services = await cursor.toArray()
@@ -70,7 +70,7 @@ try{
 
      
 
-       
+
     app.put('/user/admin/:email',verifyJWT,async(req,res)=>{
       // const email = req.params.email;
       // const filter = {email: email};
@@ -94,12 +94,7 @@ try{
       else{
         res.status(403).send({message: 'forbidden'});
       }
-    
-    
-    
-    
-    
-    
+  
     });
 
 
