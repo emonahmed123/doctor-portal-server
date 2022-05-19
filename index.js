@@ -15,7 +15,6 @@ const port =process.env.PORT ||5000
 
 const uri =`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.6lyyw.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
-console.log(uri);
 
 function verifyJWT(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -28,6 +27,7 @@ function verifyJWT(req, res, next) {
   jwt.verify(token,process.env.ACCESS_TOKEN, function (err, decoded) {
   //  console.log(decoded)
    
+  console.log(err)
    if (err) {
       return res.status(403).send({ message: 'Forbidden access' })
     }
@@ -44,11 +44,28 @@ try{
   const serviceCollection =client.db('doctor_portal').collection('services')
   const bookingCollection =client.db('doctor_portal').collection('bookings')
   const userCollection =client.db('doctor_portal').collection('users')
+  const doctorCollection =client.db('doctor_portal').collection('doctors')
+        
+
+  // const verifyAdmin = async (req, res, next) => {
+  //   const requester = req.decoded.email;
+  //   const requesterAccount = await userCollection.findOne({ email: requester });
+  //   if (requesterAccount.role === 'admin') {
+  //     next();
+  //   }
+  //   else {
+  //     res.status(403).send({ message: 'forbidden' });
+  //   }
+  // }
 
 
+
+
+
+ 
      app.get('/service',async(req , res)=>{
          const query ={}
-         const cursor =serviceCollection.find(query)
+         const cursor =serviceCollection.find(query).project({name:1})
         const services = await cursor.toArray()
         res.send(services)
      });
@@ -80,10 +97,10 @@ try{
       //  const result =await userCollection.updateOne(filter,updateDoc)
       //   const token =jwt.sign({email:email}, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
       //  res.send({ result ,token});
-      const email = req.params.email;
-      const requester = req.decoded.email;
-      const requesterAccount = await userCollection.findOne({ email: requester });
-      if (requesterAccount.role === 'admin') {
+       const email = req.params.email;
+       const requester = req.decoded.email;
+       const requesterAccount = await userCollection.findOne({ email: requester });
+       if (requesterAccount.role === 'admin') {
         const filter = { email: email };
         const updateDoc = {
           $set: { role: 'admin' },
@@ -91,10 +108,11 @@ try{
         const result = await userCollection.updateOne(filter, updateDoc);
         res.send(result);
       }
-      else{
-        res.status(403).send({message: 'forbidden'});
+      else {  
+          return res.status(403).send({ message: 'forbidden access' });
+      
       }
-  
+   
     });
 
 
@@ -109,7 +127,7 @@ try{
              $set : user,
            };
            const result =await userCollection.updateOne(filter, updateDoc , options)
-            const token =jwt.sign({email:email}, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
+            const token =jwt.sign({email:email}, process.env.ACCESS_TOKEN,)
            res.send({ result ,token});
           });
 
@@ -156,25 +174,25 @@ try{
   * app.delete('booking/:id)
   */
 
-  app.get('/booking', verifyJWT, async (req, res) => {
+  app.get('/booking',verifyJWT, async (req, res) => {
     const patient = req.query.patient;
     const decodedEmail = req.decoded.email;
-  console.log(patient)
-           if(decodedEmail===patient){
+    console.log(patient)
+            if(decodedEmail===patient){
             const query = { patient: patient };
             const bookings = await bookingCollection.find(query).toArray();
             res.send(bookings);
            }
   
-    else {
-      return res.status(403).send({ message: 'forbidden access' });
+     else {
+       return res.status(403).send({ message: 'forbidden access' });
     }
   });
 
 
 
 
-      app.post('/booking' ,async(req,res)=>{
+      app.post('/booking',async(req,res)=>{
         const booking=req.body;
        const query ={treatment:booking.treatment,date:booking.date, patient:booking.patient}
        const  exists=await  bookingCollection.findOne(query);
@@ -186,8 +204,14 @@ try{
 
       });
 
+      app.post('/doctor',verifyJWT,async(req,res) => {
+        const doctor = req.body;
+        const result = await doctorCollection.insertOne(doctor);
+        res.send(result);
+      });
 
 } 
+
 finally{
 
 }
