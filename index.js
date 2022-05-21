@@ -2,10 +2,10 @@ const express = require('express')
 const cors = require('cors');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app =express();
 const port =process.env.PORT ||5000
-
+const stripe =require('stripe')(process.env.STRIPE_SECRET_KEY)
 
   app.use(cors());
    app.use(express.json());
@@ -27,7 +27,7 @@ function verifyJWT(req, res, next) {
   jwt.verify(token,process.env.ACCESS_TOKEN, function (err, decoded) {
   //  console.log(decoded)
    
-  console.log(err)
+
    if (err) {
       return res.status(403).send({ message: 'Forbidden access' })
     }
@@ -45,21 +45,32 @@ try{
   const bookingCollection =client.db('doctor_portal').collection('bookings')
   const userCollection =client.db('doctor_portal').collection('users')
   const doctorCollection =client.db('doctor_portal').collection('doctors')
+  const PaymentCollection =client.db('doctor_portal').collection('payments')
         
 
-  // const verifyAdmin = async (req, res, next) => {
-  //   const requester = req.decoded.email;
-  //   const requesterAccount = await userCollection.findOne({ email: requester });
-  //   if (requesterAccount.role === 'admin') {
-  //     next();
-  //   }
-  //   else {
-  //     res.status(403).send({ message: 'forbidden' });
-  //   }
-  // }
+  const verifyAdmin = async (req, res, next) => {
+    const requester = req.decoded.email;
+    const requesterAccount = await userCollection.findOne({ email: requester });
+    if (requesterAccount.role === 'admin') {
+      next();
+    }
+    else {
+      res.status(403).send({ message: 'forbidden' });
+    }
+  }
 
 
-
+     app.post('/create-payment-intent',verifyJWT, async(req,res)=>{
+       const service=req.body;
+       const price =service.price;
+       const amount =price*100;
+       const paymentIntent=await stripe.paymentIntents.create({
+        amount:amount,
+        currency:'usd',
+        payment_method_types:['card']
+       })
+       res.send({clientSecret:paymentIntent.client_secret})
+     });
 
 
  
@@ -88,7 +99,7 @@ try{
      
 
 
-    app.put('/user/admin/:email',verifyJWT,async(req,res)=>{
+    app.put('/user/admin/:email',verifyJWT,verifyAdmin, async(req,res)=>{
       // const email = req.params.email;
       // const filter = {email: email};
       //  const updateDoc ={
@@ -100,18 +111,18 @@ try{
        const email = req.params.email;
        const requester = req.decoded.email;
        const requesterAccount = await userCollection.findOne({ email: requester });
-       if (requesterAccount.role === 'admin') {
+      //  if (requesterAccount.role === 'admin') {
         const filter = { email: email };
         const updateDoc = {
           $set: { role: 'admin' },
         };
         const result = await userCollection.updateOne(filter, updateDoc);
         res.send(result);
-      }
-      else {  
-          return res.status(403).send({ message: 'forbidden access' });
+      // }
+      // else {  
+      //     return res.status(403).send({ message: 'forbidden access' });
       
-      }
+      // }
    
     });
 
@@ -188,6 +199,50 @@ try{
        return res.status(403).send({ message: 'forbidden access' });
     }
   });
+    app.get('/booking/:id',async(req,res)=>{
+      const id = req.params.id
+      const query ={_id:ObjectId(id)};
+      const booking = await bookingCollection.findOne(query);
+      res.send(booking)
+    });
+
+          //  app.patch('/booking/:id',verifyJWT,async(req,res)=>{
+          //     const id =req.params.id;
+          //     const payment =req.body
+          //     const filter ={_id:ObjectId(id)}
+          //     const updatedDoc={
+          //       $set:{
+          //         paid:true,
+          //         transactionId:payment.transactionId
+          //       }
+          //     }
+          //    const result  =await PaymentCollection.insertOne(payment);
+          //     const updatedBooking =await bookingCollection.updateOne(filter,updatedDoc) ;
+                
+          //           res.send(updatedBooking)
+          //       });
+
+          app.patch('/booking/:id', verifyJWT, async(req, res) =>{
+            const id  = req.params.id;
+            const payment = req.body;
+            const filter = {_id: ObjectId(id)};
+            const updatedDoc = {
+              $set: {
+                paid: true,
+                transactionId: payment.transactionId
+              }
+            }
+      
+            const result = await PaymentCollection.insertOne(payment);
+            const updatedBooking = await bookingCollection.updateOne(filter, updatedDoc);
+            res.send(updatedDoc);
+          })
+
+
+
+
+
+
 
 
 
@@ -203,10 +258,22 @@ try{
      return   res.send({success:true, result})
 
       });
+      app.get('/doctor', verifyJWT, verifyAdmin, async(req, res) =>{
+        const doctors = await doctorCollection.find().toArray();
+        res.send(doctors);
+      });
 
-      app.post('/doctor',verifyJWT,async(req,res) => {
+
+      app.post('/doctor',verifyJWT,verifyAdmin, async(req,res) => {
         const doctor = req.body;
         const result = await doctorCollection.insertOne(doctor);
+        res.send(result);
+      });
+
+      app.delete('/doctor/:email',verifyJWT,verifyAdmin, async(req,res) => {
+         const email = req.params.email;
+        const filter = {email:email}
+        const result = await doctorCollection.deleteOne(filter);
         res.send(result);
       });
 
